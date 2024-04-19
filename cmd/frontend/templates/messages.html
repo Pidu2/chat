@@ -1,17 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>My Amazing Chat App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        #messages {
+            background-color: #fff;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+            padding: 10px;
+            margin-bottom: 20px;
+            min-height: 300px;
+            width: 300px;
+            overflow-y: scroll;
+        }
+        .message {
+            padding: 5px 10px;
+            border-radius: 10px;
+            margin-bottom: 5px;
+            line-height: 1.5;
+        }
+        .own-message {
+            background-color: #dcf8c6; /* Light green background for own messages */
+            align-self: flex-end;
+            border-color: #def;
+        }
+        .other-message {
+            background-color: #e5e5ea; /* Light gray background for other messages */
+            align-self: flex-start;
+            border-color: #ccd;
+        }
+        input[type="text"] {
+            padding: 10px;
+            border: none;
+            border-bottom: 2px solid #5cb85c; /* Green bottom border */
+            width: calc(100% - 22px); /* Full width minus padding and border */
+        }
+        button {
+            background-color: #5cb85c; /* Green background */
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            margin-top: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #4cae4c; /* Darker green background on hover */
+        }
+    </style>
     <script type="text/javascript">
         var conn;
+        var userID = '{{.UserID}}';  // Get the user ID injected by the server
+
         window.onload = function() {
             conn = new WebSocket("ws://" + window.location.host + "/ws");
             conn.onopen = function() {
                 console.log("Connected!");
             };
             conn.onmessage = function(e) {
-                console.log(e.data);
-                document.getElementById('messages').textContent += e.data + "\n";
+                var data = JSON.parse(e.data);
+                var node = document.createElement("div");
+                var textnode = document.createTextNode(data.username + ": "+ data.message.message);
+                node.appendChild(textnode);
+                if (data.username === userID) {
+                    node.className = "message own-message";
+                } else {
+                    node.className = "message other-message";
+                }
+                document.getElementById('messages').prepend(node);
             };
             conn.onerror = function(e) {
                 console.log("Error occurred!");
@@ -28,11 +91,14 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message: message }),
+                body: JSON.stringify({ message: message, username: userID }),
                 credentials: 'include'
             })
             .then(response => response.json())
-            .then(data => console.log('Message sent:', data))
+            .then(data => {
+                console.log('Message sent:', data);
+                document.getElementById('message').value = ''; // Clear the input after sending
+            })
             .catch(error => console.error('Error sending message:', error));
         }
     </script>
@@ -42,6 +108,6 @@
     <h2>Logged in as {{.UserID}}!</h2>
     <input type="text" id="message" placeholder="Enter message" />
     <button onclick="sendMessage()">Send</button>
-    <pre id="messages"></pre>
+    <div id="messages"></div>
 </body>
 </html>
