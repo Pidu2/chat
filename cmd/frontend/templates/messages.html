@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Amazing Chat App</title>
+    <script type="text/javascript">
+        var conn;
+        window.onload = function() {
+            conn = new WebSocket("ws://" + window.location.host + "/ws");
+            conn.onopen = function() {
+                console.log("Connected!");
+            };
+            conn.onmessage = function(e) {
+                console.log(e.data);
+                document.getElementById('messages').textContent += e.data + "\n";
+            };
+            conn.onerror = function(e) {
+                console.log("Error occurred!");
+            };
+            conn.onclose = function(e) {
+                console.log("Connection closed!");
+            };
+        };
+
+        function sendMessage() {
+            var message = document.getElementById('message').value;
+            fetch('/message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message }),
+                credentials: 'include'
+            })
+            .then(response => response.json())
+            .then(data => console.log('Message sent:', data))
+            .catch(error => console.error('Error sending message:', error));
+        }
+    </script>
+</head>
+<body>
+    <h1>My Amazing Chat App</h1>
+    <h2>Logged in as {{.UserID}}!</h2>
+    <input type="text" id="message" placeholder="Enter message" />
+    <button onclick="sendMessage()">Send</button>
+    <pre id="messages"></pre>
+</body>
+</html>

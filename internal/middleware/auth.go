@@ -3,7 +3,6 @@ package middleware
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -47,13 +46,11 @@ func TokenAuthMiddleware() gin.HandlerFunc {
 }
 
 func extractToken(c *gin.Context) string {
-	bearToken := c.GetHeader("Authorization")
-	// Normally Authorization HTTP header is in the format of "Bearer {token}"
-	strArr := strings.Split(bearToken, " ")
-	if len(strArr) == 2 {
-		return strArr[1]
+	cookie, err := c.Cookie("jwt")
+	if err != nil {
+		return ""
 	}
-	return ""
+	return cookie
 }
 
 func GenerateJWT(username string) (string, error) {

@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/Pidu2/chat/internal/middleware"
@@ -35,19 +37,34 @@ func main() {
 
 	// INIT GIN
 	r := gin.Default()
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:8081"}, // Adjust this to your frontend's address
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		AllowOriginFunc: func(origin string) bool {
+			return origin == "http://localhost:8081"
+		},
+		MaxAge: 12 * time.Hour,
+	}))
 	// Register Endpoint
 	r.POST("/register", func(c *gin.Context) {
 		queryPeople(database)
-		var newUser User
-		if err := c.BindJSON(&newUser); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
+		var newUser = User{
+			Username: c.PostForm("username"),
+			Password: c.PostForm("password"),
 		}
 		if !userExists(database, newUser.Username) {
 			if insertUser(database, newUser.Username, newUser.Password) {
-				c.JSON(http.StatusCreated, gin.H{
-					"message": "User registered successfully!",
-				})
+				jwt, err := middleware.GenerateJWT(newUser.Username)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"message": "Error creating JWT!",
+					})
+				}
+				c.SetCookie("jwt", jwt, 3600, "/", "localhost", false, true)
+				c.Redirect(http.StatusFound, "http://localhost:8081/")
 			} else {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"message": "Error creating user!",
@@ -61,10 +78,9 @@ func main() {
 	})
 	// Login Endpoint, returning JWT
 	r.POST("/login", func(c *gin.Context) {
-		var newUser User
-		if err := c.BindJSON(&newUser); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
+		var newUser = User{
+			Username: c.PostForm("username"),
+			Password: c.PostForm("password"),
 		}
 		if getUser(database, newUser.Username, newUser.Password) {
 			jwt, err := middleware.GenerateJWT(newUser.Username)
@@ -73,9 +89,8 @@ func main() {
 					"message": "Error logging in!",
 				})
 			}
-			c.JSON(http.StatusOK, gin.H{
-				"jwt": jwt,
-			})
+			c.SetCookie("jwt", jwt, 3600, "/", "localhost", false, true)
+			c.Redirect(http.StatusFound, "http://localhost:8081/")
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "Error logging in!",
